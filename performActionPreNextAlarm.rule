@@ -1,0 +1,35 @@
+// The follwing should be openHAB DSL, intended to be added as a new script with scripting method 'Rule DSL' selected 
+// (https://demo.openhab.org/settings/scripts/add would be the link for this on the openHAB demo instance):
+
+// A read only variable to store the amount of minutes we want to preschedule our action
+val delta = 10
+
+// A variable named alexaPreNextAlarmTimer will be initialized to null if it’s not already defined.
+// If it is defined, it retains what ever value it was set to prior to the rule running.
+// inspired by "Saving a variable" at https://community.openhab.org/t/oh-3-examples-writing-and-using-javascript-libraries-in-mainui-created-rules/108526
+// and https://community.openhab.org/t/ternary-expression-error/91128/5
+var alexaPreNextAlarmTimer = if (alexaPreNextAlarmTimer === undefined) null else alexaPreNextAlarmTimer
+
+// rule inspired by example at https://www.openhab.org/docs/configuration/actions.html#timers
+rule "Trigger command on alexa 10 minutes before NextAlarm"
+when
+    Item EchoDotG1_NextAlarm changed
+then
+    if (alexaPreNextAlarmTimer !== null) {
+      // timer already active
+      // we reschedule it to match new NextAlarm's time minus delta
+      alexaPreNextAlarmTimer.reschedule(EchoDotG1_NextAlarm.minusMinutes(delta))
+      logInfo("rules", "alexaPreNextAlarmTimer rescheduled")
+    } else {
+      // timer not defined yet 
+      // (probably first change in EchoDotG1_NextAlarm received)
+      // we create a new timer that gets activated 10 minutes prior to EchoDotG1_NextAlarm
+      alexaPreNextAlarmTimer = createTimer(EchoDotG1_NextAlarm.minusMinutes(delta), [ |
+                  logInfo("rules", "alexaPreNextAlarmTimer activated")
+                  // this gets executed when the timer is finished at NextAlarm minus delta
+                  EchoDotLivingroom_StartRoutine.sendCommand('Open the living room blinds') 
+                  // ... (if more shall be executed, put it here)
+                ])
+      logInfo("rules", "alexaPreNextAlarmTimer created")
+    }
+end
